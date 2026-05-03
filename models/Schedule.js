@@ -13,7 +13,16 @@ const scheduleSchema = new mongoose.Schema({
   consultationFee: {
     type: Number,
     required: true
-  }
+  },
+
+  slots: [{
+    startTime: String,
+    endTime: String,
+    isBooked: {
+      type: Boolean,
+      default: false
+    }
+  }]
 
 }, { timestamps: true });
 

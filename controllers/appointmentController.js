@@ -4,7 +4,7 @@ const Schedule = require("../models/Schedule");
 // CREATE
 exports.createAppointment = async (req, res) => {
   try {
-    const { doctor, scheduleId, date } = req.body;
+    const { doctor, scheduleId, date, slotTime } = req.body;
 
     const schedule = await Schedule.findById(scheduleId);
 
@@ -16,10 +16,21 @@ exports.createAppointment = async (req, res) => {
       return res.status(400).json({ message: "Invalid doctor" });
     }
 
+    // Find the requested slot in the schedule
+    const slot = schedule.slots.find(s => s.startTime === slotTime);
+    if (!slot) {
+      return res.status(400).json({ message: "Invalid time slot" });
+    }
+
+    if (slot.isBooked) {
+      return res.status(400).json({ message: "This time slot is already booked" });
+    }
+
     // Prevent the SAME patient from booking the same exact schedule slot twice
     const existingAppointment = await Appointment.findOne({
       patient: req.user.id,
       schedule: scheduleId,
+      slotTime,
       status: { $ne: "cancelled" }
     });
 
@@ -27,11 +38,16 @@ exports.createAppointment = async (req, res) => {
       return res.status(400).json({ message: "This time slot is already booked by you." });
     }
 
+    // Mark slot as booked
+    slot.isBooked = true;
+    await schedule.save();
+
     const appointment = await Appointment.create({
       patient: req.user.id,
       doctor,
       schedule: scheduleId,
       date,
+      slotTime,
       consultationFee: schedule.consultationFee
     });
 
@@ -116,6 +132,18 @@ exports.updateAppointmentStatus = async (req, res) => {
         { appointment: appointment._id },
         { status: "cancelled" }
       );
+
+      // Free up the schedule slot
+      if (appointment.schedule && appointment.slotTime) {
+        const schedule = await Schedule.findById(appointment.schedule);
+        if (schedule) {
+          const slot = schedule.slots.find(s => s.startTime === appointment.slotTime);
+          if (slot) {
+            slot.isBooked = false;
+            await schedule.save();
+          }
+        }
+      }
     }
 
     res.json(appointment);

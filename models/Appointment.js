@@ -16,6 +16,7 @@ const appointmentSchema = new mongoose.Schema({
   },
 
   date: Date,
+  slotTime: String,
 
   consultationFee: Number,
 

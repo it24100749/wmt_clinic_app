@@ -132,3 +132,67 @@ exports.getDoctors = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// UPDATE USER (Admin only)
+exports.updateUser = async (req, res) => {
+  try {
+    const { name, email, role, specialization } = req.body;
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.name = name || user.name;
+    user.email = email || user.email;
+    user.role = role || user.role;
+    
+    if (user.role === "doctor") {
+      user.specialization = specialization || user.specialization;
+    } else {
+      user.specialization = "";
+    }
+
+    const updatedUser = await user.save();
+    res.json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      specialization: updatedUser.specialization
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE USER (Admin only)
+exports.deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Cascading deletion logic for doctors
+    if (user.role === "doctor") {
+      const Schedule = require("../models/Schedule");
+      const Appointment = require("../models/Appointment");
+
+      // 1. Delete all schedules for this doctor
+      await Schedule.deleteMany({ doctor: user._id });
+
+      // 2. Cancel all upcoming appointments for this doctor
+      await Appointment.updateMany(
+        { doctor: user._id, status: { $in: ["pending", "confirmed"] } },
+        { $set: { status: "cancelled" } }
+      );
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: "User removed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
