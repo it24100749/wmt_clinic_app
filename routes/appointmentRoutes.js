@@ -22,7 +22,10 @@ router.get("/", protect, authorizeRoles("admin", "doctor"), getAllAppointments);
 router.get("/doctor", protect, authorizeRoles("doctor"), getDoctorAppointments);
 router.put("/:id", protect, authorizeRoles("admin"), updateAppointmentStatus);
 
-// Cancel (MUST be before export)
+// Cancel (MUST be before /:id)
 router.put("/cancel/:id", protect, authorizeRoles("patient"), cancelAppointment);
+
+// Reschedule (MUST be before /:id)
+router.put("/reschedule/:id", protect, authorizeRoles("patient"), rescheduleAppointment);
 
 module.exports = router;
