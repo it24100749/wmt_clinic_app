@@ -71,7 +71,7 @@ exports.getDoctorAppointments = async (req, res) => {
   }
 };
 
-// 🔥 ADD THIS
+// To fetch all appointments
 exports.getAllAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find()
@@ -84,7 +84,7 @@ exports.getAllAppointments = async (req, res) => {
   }
 };
 
-// 🔥 ADD THIS
+// Update Appointment Status
 exports.updateAppointmentStatus = async (req, res) => {
   try {
     const { status } = req.body;
