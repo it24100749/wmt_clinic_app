@@ -1,5 +1,6 @@
 const Appointment = require("../models/Appointment");
 const Schedule = require("../models/Schedule");
+const { sendAppointmentConfirmationEmail } = require("../utils/emailService");
 
 // CREATE
 exports.createAppointment = async (req, res) => {
@@ -104,7 +105,9 @@ exports.getAllAppointments = async (req, res) => {
 exports.updateAppointmentStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const appointment = await Appointment.findById(req.params.id);
+    const appointment = await Appointment.findById(req.params.id)
+      .populate("patient", "name email")
+      .populate("doctor", "name");
     
     if (!appointment) return res.status(404).json({ message: "Not found" });
 
@@ -123,6 +126,19 @@ exports.updateAppointmentStatus = async (req, res) => {
           totalAmount: appointment.consultationFee || 0,
           status: "unpaid"
         });
+      }
+      
+      try {
+        await sendAppointmentConfirmationEmail({
+          patientEmail: appointment.patient.email,
+          patientName: appointment.patient.name,
+          doctorName: appointment.doctor.name,
+          date: appointment.date,
+          time: appointment.slotTime,
+          fee: appointment.consultationFee || 0
+        });
+      } catch (emailErr) {
+        console.error("Failed to send confirmation email:", emailErr.message);
       }
     }
 
