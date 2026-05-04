@@ -38,6 +38,24 @@ app.get("/api/admin", protect, authorizeRoles("admin"), (req, res) => {
 
 app.use("/api/appointments", require("./routes/appointmentRoutes"));
 
+// Test email endpoint - open http://localhost:5000/api/test-email in browser
+app.get("/api/test-email", async (req, res) => {
+  const { sendAppointmentConfirmationEmail } = require("./utils/emailService");
+  try {
+    await sendAppointmentConfirmationEmail({
+      patientEmail: process.env.EMAIL_USER,
+      patientName: "Test Patient",
+      doctorName: "Dr. Test Doctor",
+      date: new Date(),
+      time: "09:00 AM",
+      fee: 500
+    });
+    res.json({ success: true, message: "Test email sent to " + process.env.EMAIL_USER });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.use("/api/emr", require("./routes/emrRoutes"));
 
 app.use("/api/prescriptions", require("./routes/prescriptionRoutes"));
