@@ -1,5 +1,6 @@
 const Appointment = require("../models/Appointment");
 const Schedule = require("../models/Schedule");
+const User = require("../models/User");
 const { sendAppointmentConfirmationEmail } = require("../utils/emailService");
 
 // CREATE
@@ -112,9 +113,26 @@ exports.updateAppointmentStatus = async (req, res) => {
     if (!appointment) return res.status(404).json({ message: "Not found" });
 
     // Capture populated data BEFORE save() to prevent depopulation
-    const patientEmail = appointment.patient?.email;
-    const patientName = appointment.patient?.name;
-    const doctorName = appointment.doctor?.name;
+    let patientEmail = appointment.patient?.email;
+    let patientName = appointment.patient?.name;
+    let doctorName = appointment.doctor?.name;
+
+    // Fallback: if populate didn't return email, fetch directly from User collection
+    if (!patientEmail && appointment.patient) {
+      const patientUser = await User.findById(appointment.patient).select("name email");
+      patientEmail = patientUser?.email;
+      patientName = patientUser?.name;
+    }
+    if (!doctorName && appointment.doctor) {
+      const doctorUser = await User.findById(appointment.doctor).select("name");
+      doctorName = doctorUser?.name;
+    }
+
+    console.log("=== Appointment Confirmation ===");
+    console.log("Status:", status);
+    console.log("Patient email:", patientEmail || "NOT FOUND IN DATABASE");
+    console.log("Patient name:", patientName);
+    console.log("Doctor name:", doctorName);
     const appointmentDate = appointment.date;
     const appointmentSlot = appointment.slotTime;
     const appointmentFee = appointment.consultationFee || 0;
