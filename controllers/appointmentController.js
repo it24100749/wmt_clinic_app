@@ -108,8 +108,16 @@ exports.updateAppointmentStatus = async (req, res) => {
     const appointment = await Appointment.findById(req.params.id)
       .populate("patient", "name email")
       .populate("doctor", "name");
-    
+
     if (!appointment) return res.status(404).json({ message: "Not found" });
+
+    // Capture populated data BEFORE save() to prevent depopulation
+    const patientEmail = appointment.patient?.email;
+    const patientName = appointment.patient?.name;
+    const doctorName = appointment.doctor?.name;
+    const appointmentDate = appointment.date;
+    const appointmentSlot = appointment.slotTime;
+    const appointmentFee = appointment.consultationFee || 0;
 
     appointment.status = status;
     await appointment.save();
@@ -121,24 +129,27 @@ exports.updateAppointmentStatus = async (req, res) => {
         await Billing.create({
           patient: appointment.patient,
           appointment: appointment._id,
-          consultationFee: appointment.consultationFee || 0,
+          consultationFee: appointmentFee,
           medicationTotal: 0,
-          totalAmount: appointment.consultationFee || 0,
+          totalAmount: appointmentFee,
           status: "unpaid"
         });
       }
-      
+
+      console.log(`Sending confirmation email to: ${patientEmail}`);
       try {
         await sendAppointmentConfirmationEmail({
-          patientEmail: appointment.patient.email,
-          patientName: appointment.patient.name,
-          doctorName: appointment.doctor.name,
-          date: appointment.date,
-          time: appointment.slotTime,
-          fee: appointment.consultationFee || 0
+          patientEmail,
+          patientName,
+          doctorName,
+          date: appointmentDate,
+          time: appointmentSlot,
+          fee: appointmentFee
         });
+        console.log("Confirmation email sent successfully.");
       } catch (emailErr) {
-        console.error("Failed to send confirmation email:", emailErr.message);
+        console.error("Email send failed:", emailErr.message);
+        if (emailErr.response) console.error("SMTP response:", emailErr.response);
       }
     }
 
@@ -167,6 +178,7 @@ exports.updateAppointmentStatus = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 // RESCHEDULE (Patient - only when pending)
 exports.rescheduleAppointment = async (req, res) => {
   try {
