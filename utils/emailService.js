@@ -1,24 +1,29 @@
 const nodemailer = require("nodemailer");
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
-transporter.verify((error) => {
-  if (error) {
-    console.error("SMTP connection failed:", error.message);
-  } else {
-    console.log("SMTP server is ready to send emails.");
-  }
-});
-
 const sendAppointmentConfirmationEmail = async ({ patientEmail, patientName, doctorName, date, time, fee }) => {
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+
+  console.log("=== EMAIL SERVICE ===");
+  console.log("EMAIL_USER:", user || "NOT SET IN ENV");
+  console.log("EMAIL_PASS:", pass ? `SET (${pass.length} chars)` : "NOT SET IN ENV");
+  console.log("Sending to:", patientEmail);
+
+  if (!user || !pass) {
+    throw new Error("EMAIL_USER or EMAIL_PASS is not set in environment variables");
+  }
+
+  if (!patientEmail) {
+    throw new Error("Patient email is missing - cannot send email");
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user, pass }
+  });
+
   const formattedDate = new Date(date).toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -26,8 +31,8 @@ const sendAppointmentConfirmationEmail = async ({ patientEmail, patientName, doc
     day: "numeric"
   });
 
-  const mailOptions = {
-    from: `"Clinic App" <${process.env.EMAIL_USER}>`,
+  await transporter.sendMail({
+    from: `"Clinic App" <${user}>`,
     to: patientEmail,
     subject: "Appointment Confirmed",
     html: `
@@ -54,13 +59,13 @@ const sendAppointmentConfirmationEmail = async ({ patientEmail, patientName, doc
             <td style="padding: 8px;">Rs. ${fee}</td>
           </tr>
         </table>
-        <p style="margin-top: 20px; color: #757575; font-size: 13px;">Please arrive 10 minutes before your scheduled time. If you need to cancel or reschedule, please contact us in advance.</p>
+        <p style="margin-top: 20px; color: #757575; font-size: 13px;">Please arrive 10 minutes before your scheduled time.</p>
         <p style="color: #757575; font-size: 13px;">Thank you for choosing our clinic.</p>
       </div>
     `
-  };
+  });
 
-  await transporter.sendMail(mailOptions);
+  console.log("Email sent successfully to:", patientEmail);
 };
 
 module.exports = { sendAppointmentConfirmationEmail };
