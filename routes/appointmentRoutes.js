@@ -7,7 +7,8 @@ const {
   getDoctorAppointments,
   getAllAppointments,
   updateAppointmentStatus,
-  cancelAppointment
+  cancelAppointment,
+  rescheduleAppointment
 } = require("../controllers/appointmentController");
 
 const { protect, authorizeRoles } = require("../middlewear/authMiddlewear");
