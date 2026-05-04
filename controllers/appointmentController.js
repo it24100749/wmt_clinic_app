@@ -167,6 +167,56 @@ exports.updateAppointmentStatus = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// RESCHEDULE (Patient - only when pending)
+exports.rescheduleAppointment = async (req, res) => {
+  try {
+    const { scheduleId, date, slotTime } = req.body;
+
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+    if (appointment.patient.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (appointment.status !== "pending") {
+      return res.status(400).json({ message: "Reschedule is only allowed before admin confirms the appointment" });
+    }
+
+    const newSchedule = await Schedule.findById(scheduleId);
+    if (!newSchedule) return res.status(404).json({ message: "Schedule not found" });
+
+    const newSlot = newSchedule.slots.find(s => s.startTime === slotTime);
+    if (!newSlot) return res.status(400).json({ message: "Invalid time slot" });
+    if (newSlot.isBooked) return res.status(400).json({ message: "This time slot is already booked" });
+
+    // Free old slot
+    if (appointment.schedule) {
+      const oldSchedule = await Schedule.findById(appointment.schedule);
+      if (oldSchedule) {
+        const oldSlot = oldSchedule.slots.find(s => s.startTime === appointment.slotTime);
+        if (oldSlot) {
+          oldSlot.isBooked = false;
+          await oldSchedule.save();
+        }
+      }
+    }
+
+    // Book new slot
+    newSlot.isBooked = true;
+    await newSchedule.save();
+
+    appointment.schedule = scheduleId;
+    appointment.date = date;
+    appointment.slotTime = slotTime;
+    appointment.consultationFee = newSchedule.consultationFee;
+    await appointment.save();
+
+    res.json({ message: "Appointment rescheduled successfully", appointment });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // CANCEL REQUEST (Patient)
 exports.cancelAppointment = async (req, res) => {
